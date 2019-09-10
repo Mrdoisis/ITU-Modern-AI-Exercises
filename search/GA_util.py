@@ -21,7 +21,10 @@ class Sequence:
 
     def __call__(self, state):
         """ YOUR CODE HERE!"""
-        raise NotImplementedError
+        for child in self.children:
+            if not child():
+                return False
+        return True
 
 
 class Selector:
@@ -35,8 +38,10 @@ class Selector:
         return child
 
     def __call__(self, state):
-        """ YOUR CODE HERE!"""
-        raise NotImplementedError
+        for child in self.children:
+            if child():
+                return True
+        return False
 
 
 class CheckValid:
@@ -46,8 +51,9 @@ class CheckValid:
         self.direction = direction
 
     def __call__(self, state):
-        """ YOUR CODE HERE!"""
-        raise NotImplementedError
+        if self.direction in state.getLegalPacmanActions():
+            return True
+        return False
 
 
 class CheckDanger:
@@ -57,8 +63,10 @@ class CheckDanger:
         self.direction = direction
 
     def __call__(self, state):
-        """ YOUR CODE HERE!"""
-        raise NotImplementedError
+        for legal_action in state.getLegalPacmanActions():
+            if legal_action in state.getGhostPositions():
+                return False
+        return True
 
 
 class ActionGo:
@@ -68,9 +76,10 @@ class ActionGo:
         self.direction = direction
 
     def __call__(self, state):
-        """ YOUR CODE HERE!"""
-        raise NotImplementedError
-
+        if self.direction == "Random":
+            return np.random.choice(state.getLegalPacmanActions())
+        if self.direction in state.getLegalPacmanActions():
+            return self.direction
 
 class ActionGoNot:
     """ Go in a random direction that isn't <direction>
@@ -79,8 +88,10 @@ class ActionGoNot:
         self.direction = direction
 
     def __call__(self, state):
-        """ YOUR CODE HERE!"""
-        raise NotImplementedError
+        legal_actions = state.getLegalPacmanActions()
+        if self.direction in legal_actions:
+            legal_actions.remove(self.direction)
+        return np.random.choice(legal_actions)
 
 
 class DecoratorInvert:
