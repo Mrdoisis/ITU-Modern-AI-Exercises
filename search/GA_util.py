@@ -22,7 +22,7 @@ class Sequence:
     def __call__(self, state):
         """ YOUR CODE HERE!"""
         for child in self.children:
-            if not child():
+            if not child(state):
                 return False
         return True
 
@@ -39,7 +39,7 @@ class Selector:
 
     def __call__(self, state):
         for child in self.children:
-            if child():
+            if child(state):
                 return True
         return False
 
@@ -97,9 +97,6 @@ class ActionGoNot:
 class DecoratorInvert:
     def __call__(self, arg):
         return not arg
-
-
-
 
 
 def parse_node(genome, parent=None):
