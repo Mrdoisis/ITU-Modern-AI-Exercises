@@ -68,6 +68,8 @@ class CheckDanger:
                 return False
         return True
 
+    def is_dangerous(self, state):
+        """ YOUR CODE HERE!"""
 
 class ActionGo:
     """ Return <direction> as an action. If <direction> is 'Random' return a random legal action
@@ -98,13 +100,15 @@ class DecoratorInvert:
     def __call__(self, arg):
         return not arg
 
-
 def parse_node(genome, parent=None):
+    if len(genome) == 0:
+        return
+
     if isinstance(genome[0], list):
         parse_node(genome[0], parent)
         parse_node(genome[1:], parent)
 
-    elif genome[0] is "SEQ":
+    elif genome[0] == "SEQ":
         if parent is not None:
             node = parent.add_child(Sequence(parent))
         else:
@@ -112,7 +116,7 @@ def parse_node(genome, parent=None):
             parent = node
         parse_node(genome[1:], node)
 
-    elif genome[0] is "SEL":
+    elif genome[0] == 'SEL':
         if parent is not None:
             node = parent.add_child(Selector(parent))
         else:
@@ -144,8 +148,7 @@ def parse_node(genome, parent=None):
         if len(genome) > 1:
             parse_node(genome[1:], parent)
 
-
-    elif genome[0] is ("Invert"):
+    elif genome[0] == ("Invert"):
         arg = genome[0].split('.')[-1]
         parent.add_child(DecoratorInvert(arg))
         if len(genome) > 1:
