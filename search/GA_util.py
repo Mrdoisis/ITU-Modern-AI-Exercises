@@ -21,10 +21,12 @@ class Sequence:
 
     def __call__(self, state):
         """ YOUR CODE HERE!"""
+        action = None
         for child in self.children:
-            if not child(state):
+            action = child(state)
+            if not action:
                 return False
-        return True
+        return action
 
 
 class Selector:
@@ -39,8 +41,9 @@ class Selector:
 
     def __call__(self, state):
         for child in self.children:
-            if child(state):
-                return True
+            action = child(state)
+            if action:
+                return action
         return False
 
 
@@ -63,13 +66,28 @@ class CheckDanger:
         self.direction = direction
 
     def __call__(self, state):
-        for legal_action in state.getLegalPacmanActions():
-            if legal_action in state.getGhostPositions():
-                return False
-        return True
+        return self.is_dangerous(state)
 
     def is_dangerous(self, state):
         """ YOUR CODE HERE!"""
+        new_state = state.generatePacmanSuccessor(self.direction)
+        new_pacman_pos = new_state.getPacmanPosition()
+        new_ghost_pos = new_state.getGhostPositions()
+
+        if new_pacman_pos in new_ghost_pos:
+            print "Oh jolly! I'm being chased from " + self.direction
+            return True
+
+        adj = new_state.getLegalPacmanActions()
+        for legal_action in adj:
+            future_state = new_state.generatePacmanSuccessor(legal_action)
+            future_pacman = future_state.getPacmanPosition()
+            future_ghosts = future_state.getGhostPositions()
+
+            if future_pacman in future_ghosts:
+                print "Oh no! There's a ghost in " + legal_action
+                return True
+        return False
 
 class ActionGo:
     """ Return <direction> as an action. If <direction> is 'Random' return a random legal action
@@ -79,7 +97,9 @@ class ActionGo:
 
     def __call__(self, state):
         if self.direction == "Random":
-            return np.random.choice(state.getLegalPacmanActions())
+            legal_actions = state.getLegalPacmanActions()
+            legal_actions.remove("Stop")
+            return np.random.choice(legal_actions)
         if self.direction in state.getLegalPacmanActions():
             return self.direction
 
