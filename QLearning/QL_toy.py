@@ -13,7 +13,7 @@ class TabularNStepQLearning:
         self.alpha = 0.1  # learning rate
         self.gamma = 0.99  # discount factor
 
-        self.exp = []
+        self.exp = [] # R
 
         # Qtable for storing Qvalues. We create one indes for each state-action pair
         self.tab_shape = np.hstack([state_shape, num_actions])
@@ -24,16 +24,29 @@ class TabularNStepQLearning:
             With probability eps: return a random action.
         """
         """ YOUR CODE HERE"""
-        raise NotImplementedError
-
-        return a
+        rn = np.random.random()
+        if rn < self.eps:
+            # Choose random action
+            legal_actions = [0, 1, 2, 3]
+            return np.random.choice(legal_actions)
+        else:
+            # Choose best action
+            actions = self.Qtable[tuple(state)]
+            best_action = np.argmax(actions)
+            return best_action
 
     def compute_G(self):
         """ Returns the discounted reward.
         """
         """ YOUR CODE HERE"""
         G = 0
-        raise NotImplementedError
+        k = 0
+        for i in self.exp:
+            (s, a, r, s_, a_, d) = i
+            g = self.Qtable[tuple(s)][a]
+            G += pow(self.gamma, k) * g
+            k += 1
+
 
         return G
 
@@ -42,8 +55,11 @@ class TabularNStepQLearning:
             update the self.Qtable.
         """
         """ YOUR CODE HERE"""
-        raise NotImplementedError
-
+        self.exp.append([s, a, r, s_, a_, d])
+        q_now = self.Qtable[tuple(s)][a]
+        max_n = max(self.Qtable[tuple(s_)])
+        temporal_diff = r + self.gamma * max_n - q_now
+        self.Qtable[tuple(s)][a] = q_now + self.alpha * temporal_diff
 
 action_dict = {0:"Up", 1:"Right", 2:"Down", 3:"Left"}
 
