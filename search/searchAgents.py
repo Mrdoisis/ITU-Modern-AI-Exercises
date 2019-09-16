@@ -79,6 +79,7 @@ class GAAgent(Agent):
         self.legal_decorator = ["Invert"]
         self.legal_nodes = self.legal_composit + self.legal_leaf + self.legal_decorator
 
+        """
         self.genome = ["SEL",
              ["SEQ", "Valid.North", "Go.North"],
              ["SEQ", "Valid.East", "Go.East"],
@@ -92,10 +93,12 @@ class GAAgent(Agent):
              ["SEQ", "Valid.South", "Danger.South", "GoNot.South"],
              ["SEQ", "Valid.West", "Danger.West", "GoNot.West"],
              "Go.Random"]
+        """
 
-        #if genome is None:
-        #    self.genome = ["SEL", "Go.Stop"]
+        if genome is None:
+            self.genome = ["SEL", "Go.Stop"]
 
+        self.fitness = 0
         self.tree = GA_util.parse_node(self.genome, None)
 
     def copy(self):
@@ -117,6 +120,9 @@ class GAAgent(Agent):
 
     def mutate(self):
         """ YOUR CODE HERE! """
+        move_actions = self.legal_leaf[0:4]
+        self.genome[-1] = np.random.choice(move_actions)
+
     def getAction(self, state):
         action = self.tree(state)
         if action not in state.getLegalPacmanActions():

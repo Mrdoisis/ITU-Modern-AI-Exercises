@@ -27,11 +27,33 @@ class EvolvePacManBT():
 
     def produce_next_generation(self, parents):
         """ YOUR CODE HERE!"""
+        for parent in parents:
+            parent.mutate() # mutate every parent
+
     def evaluate_population(self):
         """ Evaluate the fitness, and sort the population accordingly."""
         """ YOUR CODE HERE!"""
+        fitness = len(self.gene_pool)
+        for gene in self.gene_pool:
+            genome = gene.genome
+            if genome[-1] is not "Go.Stop":
+                self.gene_pool.remove(gene)
+                self.gene_pool.insert(0, gene)
+                fitness -= 1
+            else:
+                self.gene_pool.remove(gene)
+                self.gene_pool.append(gene)
+
+        return fitness
+
+        # Sort populations in increasing fitness-level order
+        #def sortFitness(val):
+        #    return val[0]
+        #self.gene_pool.sort(key = sortFitness)
     def select_parents(self, num_parents):
         """ YOUR CODE HERE!"""
+        return self.gene_pool[0:num_parents] # assuming they are ordered by their fitness level
+
     def run(self, num_generations=10):
         display_args = copy.deepcopy(self.args)
         display_args['display'] = self.display_graphics
