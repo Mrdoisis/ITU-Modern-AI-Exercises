@@ -28,28 +28,39 @@ class EvolvePacManBT():
     def produce_next_generation(self, parents):
         """ YOUR CODE HERE!"""
         for parent in parents:
-            parent.mutate() # mutate every parent
+            offspring = parent.copy()
+            offspring.mutate() # mutate offspring
+            self.gene_pool.append(offspring)
+            self.gene_pool.remove(parent)
 
     def evaluate_population(self):
         """ Evaluate the fitness, and sort the population accordingly."""
         """ YOUR CODE HERE!"""
-        fitness = len(self.gene_pool)
-        for gene in self.gene_pool:
-            genome = gene.genome
-            if genome[-1] is not "Go.Stop":
-                self.gene_pool.remove(gene)
-                self.gene_pool.insert(0, gene)
-                fitness -= 1
-            else:
-                self.gene_pool.remove(gene)
-                self.gene_pool.append(gene)
-
-        return fitness
+        avg_fitness = 0
+        tmp = []
+        for agent in self.gene_pool:
+            self.args['pacman'] = agent
+            out = runGames(**self.args)
+            fitness_score = [o.state.getScore() for o in out]
+            tmp.append((fitness_score, agent))
 
         # Sort populations in increasing fitness-level order
-        #def sortFitness(val):
-        #    return val[0]
-        #self.gene_pool.sort(key = sortFitness)
+        def sortFitness(val):
+            return val[0]
+        tmp.sort(key = sortFitness)
+
+        # Add sorted agents to gene pool
+        self.gene_pool = []
+        for agentPair in tmp:
+            (f, agent) = agentPair
+            avg_fitness += np.average(f)
+            agent.fitness = avg_fitness
+            self.gene_pool.append(agent)
+
+        # Calculate average fitness
+        avg_fitness /= len(self.gene_pool)
+        return avg_fitness
+
     def select_parents(self, num_parents):
         """ YOUR CODE HERE!"""
         return self.gene_pool[0:num_parents] # assuming they are ordered by their fitness level

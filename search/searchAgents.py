@@ -122,6 +122,8 @@ class GAAgent(Agent):
         """ YOUR CODE HERE! """
         move_actions = self.legal_leaf[0:4]
         self.genome[-1] = np.random.choice(move_actions)
+        self.genome.append(np.random.choice(move_actions))
+        self.tree = GA_util.parse_node(self.genome, None)
 
     def getAction(self, state):
         action = self.tree(state)

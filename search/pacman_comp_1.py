@@ -10,9 +10,7 @@ import textDisplay
 
 students = {
     'tokf': np.nan,
-    'your_student_name': np.nan,
-    'another_student': np.nan,
-    'more_students': np.nan,
+    'deha': np.nan,
 }
 
 if __name__ == '__main__':
