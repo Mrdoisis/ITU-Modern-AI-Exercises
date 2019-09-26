@@ -55,15 +55,17 @@ class Net(nn.Module):
             
             [You will define the activation functions in self.forward below]
         """
-        fc1_units = 1
-        self.fc1 = nn.Linear(N_STATES, fc1_units)
+        fc1_units = 1000
+        self.fc1 = nn.Linear(N_STATES, fc1_units) # Hidden layer
         self.out = nn.Linear(fc1_units, N_ACTIONS)
 
-        fc1_init_std = 0.1
-        out_init_std = 0.1
+        ##fc1_init_std = 0.1
+        ##out_init_std = 0.1
 
-        self.fc1.weight.data.normal_(0, fc1_init_std)   # initialization
-        self.out.weight.data.normal_(0, out_init_std)   # initialization
+        nn.init.normal_(self.fc1.weight)
+        nn.init.normal_(self.out.weight)
+        #self.fc1.weight.data.normal_(0, fc1_init_std)   # initialization
+        #self.out.weight.data.normal_(0, out_init_std)   # initialization
 
     def forward(self, x):
         """ Computes the forward pass of the network, and
@@ -75,7 +77,7 @@ class Net(nn.Module):
             that you have chosen in Net.__init__
         """
         # Hidden layer
-        x = F.relu(self.fc1(x))
+        x = torch.sigmoid(self.fc1(x))
 
         # Output layer
         actions_value = self.out(x)
@@ -223,7 +225,11 @@ while True:
                     x_thresh = env.unwrapped.x_threshold
                     theta_thresh = env.unwrapped.theta_threshold_radians
             """
-            pass
+            x, x_dot, theta, theta_dot = s_
+            x_thresh = env.unwrapped.x_threshold
+            theta_thresh = env.unwrapped.theta_threshold_radians
+            if x < 1.0 and x > -1.0:
+                pass
 
         # Store experience
         dqn.store_transition(s, a, r, s_, done)
@@ -252,5 +258,6 @@ plt.clf()
 plt.plot(range(len(episode_rewards)), episode_rewards, label='Training Begun')
 plt.plot(range(len(episode_rewards[:training_begins])), episode_rewards[:training_begins], label='Gathering Exp.')
 plt.legend()
+plt.show()
 
 print(":)")
