@@ -70,14 +70,14 @@ class GAAgent(Agent):
             "Danger.East",
             "Danger.South",
             "Danger.West",
-            # "Go.Random",
-            # "GoNot.North",
-            # "GoNot.East",
-            # "GoNot.South",
-            # "GoNot.West",
+            "Go.Random",
+            "GoNot.North",
+            "GoNot.East",
+            "GoNot.South",
+            "GoNot.West",
         ]
         self.legal_decorator = ["Invert"]
-        self.legal_nodes = self.legal_composit + self.legal_leaf + self.legal_decorator
+        self.legal_nodes = self.legal_composit + self.legal_leaf #+ self.legal_decorator
 
         """
         self.genome = ["SEL",
@@ -96,7 +96,7 @@ class GAAgent(Agent):
         """
 
         if genome is None:
-            self.genome = ["SEL", "Go.Stop"]
+            self.genome = ["SEL"]
 
         self.fitness = 0
         self.tree = GA_util.parse_node(self.genome, None)
@@ -118,18 +118,140 @@ class GAAgent(Agent):
 
         print_help(self.genome)
 
+    def findDepth(self, root=None):
+        depth = 0
+        depths = []
+        if root is None:
+            root = self.genome[0]
+        for child in root:
+            if isinstance(child, list):
+                depth_rec = self.findDepth(child)
+                depths.append(depth_rec)
+                return max(depths)
+        return max(depth)
+
+
+    def crossover(self, parents):
+        offsprings = []
+
+        for parent in parents:
+            offspring = parent.copy()
+            match = np.random.choice(parents)
+
+            ri = np.random.randint(0, len(offspring.genome))
+            crossoverPoint = offspring.genome[ri]
+            while isinstance(crossoverPoint, list):
+                decision = (True,False)
+                should_stop = np.random.choice(decision, p=[0.2, 0.8])
+                if should_stop:
+                    break
+                ri = np.random.randint(0, len(crossoverPoint))
+                crossoverPoint = crossoverPoint[ri]
+
+            cross_match = self.getRandomSubTree(match)
+            crossoverPoint = cross_match
+
+
+            """YOUR CODE HERE"""
+            offsprings.append(offspring)
+
+    def getRandomSubTree(self, node):
+        ri = np.random.randin(0, len(node))
+        p = node[ri]
+
+        if isinstance(p, list):
+            p = self.getRandomSubTree(p)
+        else:
+            return p
+
     def mutate(self):
         """ YOUR CODE HERE! """
-        move_actions = self.legal_leaf[0:4]
-        self.genome[-1] = np.random.choice(move_actions)
-        self.genome.append(np.random.choice(move_actions))
-        self.tree = GA_util.parse_node(self.genome, None)
+        decision = [True, False]
+
+        should_create = np.random.choice(decision, p=[0.09, 0.91])
+        should_go_further = np.random.choice(decision, p=[0.8, 0.2])
+
+        if should_create:
+            print "hi"
+        root = self.tree
+        start = root
+        parent = None
+        is_leaf = False
+        new_tree = root
+        while(isinstance(start.children, list) and should_go_further):
+            if len(start.children) > 0:
+                ri = np.random.randint(0, len(start.children))
+                if not (isinstance(start.children[ri], GA_util.Selector) or isinstance(start.children[ri], GA_util.Sequence)):
+                    is_leaf = True
+                    parent = start
+                    start = start.children[ri]
+                    break
+                start = start.children[ri]
+
+            else:
+                break
+        if not is_leaf:
+            parent = start.parent
+            if should_create or len(start.children) == 0:
+                new_part = self.new_random_tree()
+                if not isinstance(new_part, list):
+                    new_part = [new_part]
+                new_tree = GA_util.parse_node(new_part, start)
+        else:
+            start = self.new_random_tree()
+            if not isinstance(start, list):
+                start = [start]
+            new_tree = GA_util.parse_node(start, parent)
+
+
+        new_genome = GA_util.tree_to_genome(new_tree)
+        self.genome = new_genome
+        new_tree = GA_util.parse_node(self.genome, None)
+        self.tree = new_tree
+
+    def addMove(self, direction):
+        return ["SEQ", "Valid."+direction, "Danger."+direction, "Go"+direction]
+
+    def new_random_tree(self):
+        base_node = np.random.choice(self.legal_nodes)
+        if base_node in self.legal_composit:
+            new_tree = [base_node]
+            new_tree.append(self.new_random_tree())
+
+        return base_node
+
+    def randSubtree(self, start_node):
+        new_node = start_node
+        new_tree = []
+        while new_node in self.legal_composit:
+            node = new_node
+            if node.startswith("Go."):
+                direction = node.split(".")[1]
+                #new_node = self.addMove(direction)
+            new_tree.append(new_node)
+            new_node = np.random.choice(self.legal_nodes)
+        if new_node.startswith("Go."):
+            direction = new_node.split(".")[1]
+            #new_node = self.addMove(direction)
+        new_tree.append(new_node)
+        return new_tree
 
     def getAction(self, state):
+        """myGenome = ["SEL",
+             ["SEQ", "Valid.North", "Go.North"],
+             ["SEQ", "Valid.East", "Go.East"],
+             ["SEQ", "Valid.South", "Go.South"],
+             ["SEQ", "Valid.West", "Go.West"],
+             "Go.Random"]
+        tree = GA_util.parse_node(myGenome, None)"""
+        genom = GA_util.tree_to_genome(self.tree)
+        print genom
         action = self.tree(state)
         if action not in state.getLegalPacmanActions():
-            print "Illegal action!!"
+            #print "Illegal action!!"
             action = 'Stop'
+            #legal_actions = state.getLegalPacmanActions()
+            #action = np.random.choice(legal_actions)
         return action
 
 

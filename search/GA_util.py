@@ -70,12 +70,15 @@ class CheckDanger:
 
     def is_dangerous(self, state):
         """ YOUR CODE HERE!"""
+        legal = state.getLegalPacmanActions()
+        if self.direction not in legal:
+            return True
         new_state = state.generatePacmanSuccessor(self.direction)
         new_pacman_pos = new_state.getPacmanPosition()
         new_ghost_pos = new_state.getGhostPositions()
 
         if new_pacman_pos in new_ghost_pos:
-            print "Oh jolly! I'm being chased from " + self.direction
+            #print "Oh jolly! I'm being chased from " + self.direction
             return True
 
         adj = new_state.getLegalPacmanActions()
@@ -85,7 +88,7 @@ class CheckDanger:
             future_ghosts = future_state.getGhostPositions()
 
             if future_pacman in future_ghosts:
-                print "Oh no! There's a ghost in " + legal_action
+                #print "Oh no! There's a ghost in " + legal_action
                 return True
         return False
 
@@ -102,6 +105,11 @@ class ActionGo:
             return np.random.choice(legal_actions)
         if self.direction in state.getLegalPacmanActions():
             return self.direction
+        """else:
+            legal_actions = state.getLegalPacmanActions()
+            legal_actions.remove("Stop")
+            return np.random.choice(legal_actions)"""
+
 
 class ActionGoNot:
     """ Go in a random direction that isn't <direction>
@@ -120,6 +128,37 @@ class DecoratorInvert:
     def __call__(self, arg):
         return not arg
 
+def tree_to_genome(tree):
+    if isinstance(tree, Sequence):
+        head = ["SEQ"]
+        if len(tree.children) > 1:
+            for child in tree.children:
+                head.append(tree_to_genome(child))
+        elif len(tree.children) == 1:
+            head.append(tree_to_genome(tree.children[0]))
+        return head
+
+    elif isinstance(tree, Selector):
+        head = ["SEL"]
+        if len(tree.children) > 1:
+            for child in tree.children:
+                head.append(tree_to_genome(child))
+        elif len(tree.children) == 1:
+            head.append(tree_to_genome(tree.children[0]))
+        return head
+
+    elif isinstance(tree, CheckValid):
+        return ("Valid." + tree.direction)
+
+    elif isinstance(tree, CheckDanger):
+        return ("Danger." + tree.direction)
+
+    elif isinstance(tree, ActionGoNot):
+        return ("GoNot." + tree.direction)
+
+    elif isinstance(tree, ActionGo):
+        return ("Go." + tree.direction)
+
 def parse_node(genome, parent=None):
     if len(genome) == 0:
         return
@@ -136,7 +175,7 @@ def parse_node(genome, parent=None):
             parent = node
         parse_node(genome[1:], node)
 
-    elif genome[0] == 'SEL':
+    elif genome[0] == "SEL":
         if parent is not None:
             node = parent.add_child(Selector(parent))
         else:
