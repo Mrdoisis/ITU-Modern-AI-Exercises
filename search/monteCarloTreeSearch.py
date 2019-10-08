@@ -1,91 +1,100 @@
 import copy
+import uuid
+import numpy as np
 
 from pacman import *
 from game import Agent
+
+class Node():
+    def __init__(self, id, parent, children, action_taken, state):
+        self.ID = id
+        self.Parent = parent
+        self.Children = children # dictionary of actions
+        self.Value = 0
+        self.Visits = 0
+        self.Action = action_taken
+        self.State = state
 
 
 class MCTSagent(Agent):
     def __init__(self):
         self.explored = {}  # Dictionary for storing the explored states
-        self.n = 10  # Depth of search  # TODO: Play with this once the code runs
-        self.c = 1  # Exploration parameter # TODO: Play with this once the code runs
+        self.n = 5  # Depth of search  # TODO: Play with this once the code runs
+        #self.c = 1/np.sqrt(2)  # Exploration parameter # TODO: Play with this once the code runs
+        self.c = 0.2
+        self.treeSize = 1
+        self.explored = {}
 
     def getAction(self, state):
         """ Main function for the Monte Carlo Tree Search. For as long as there
             are resources, run the main loop. Once the resources runs out, take the
             action that looks the best.
         """
-        self.explored = {}
+        root = Node(0, None, {}, None, state)
+        for _ in range(self.n):
+            v1 = self.tree_policy(root)
+            result = self.defaultPolicy(v1.State)
+            self.backup(v1, result)
+        return self.best_child(root)
 
-        root = """ YOUR CODE HERE"""  # TODO: How will you encode the nodes and states?
+    def best_child(self, node):
+        """ Given a state, return the best action according to the UCT criterion."""
+        """ YOUR CODE HERE!"""
+        actions = {}
+        for child in node.Children.values():
+            x_j = child.Value
+            if x_j is None:
+                x_j = 0
+            actions[child.Action] = x_j + 2 * self.c * np.sqrt(2 * np.log(self.treeSize) / child.Visits) # UCT
+        max_actions = [k for k, v in actions.iteritems() if v == max(actions.values())]
+        legal_actions = []
+        valid_actions = node.State.getLegalPacmanActions()
+        for a in max_actions:
+            if a in valid_actions:
+                legal_actions.append(a)
 
-        for _ in range(self.n):  # while resources are left (time, computational power, etc)
-            leaf_list = self.traverse(root)
-            for leaf in leaf_list:
-                simulation_result = self.rollout(leaf)
-                self.backpropagate(leaf, simulation_result)
+        return np.random.choice(legal_actions)  # return random legal max action
 
-        return self.best_action(root)
+    def tree_policy(self, node):
+        while not node.State.isWin() and not node.State.isLose():
+            if len(node.State.getLegalPacmanActions())-1 > len(node.Children):
+                return self.expand(node)
+            else:
+                best_child = self.best_child(node)
+                node = node.Children[best_child]
+        return node
 
-    def all_successors(self, state):
-        """ Returns all legal successor states."""
-        next_pos = []
-        for action in state.getLegalPacmanActions():
-            next_pos.append(state.generatePacmanSuccessor(action))
-        return next_pos
+    def expand(self, node):
+        untried_actions = node.State.getLegalPacmanActions()
+        untried_actions.remove("Stop")
+        for tried_action in node.Children:
+            untried_actions.remove(tried_action)
+        chosen_untried_action = np.random.choice(untried_actions)
+        state_when_action_taken = node.State.generatePacmanSuccessor(chosen_untried_action)
+        new_node = Node(len(self.explored), node, {}, chosen_untried_action, state_when_action_taken)
+        node.Children[chosen_untried_action] = new_node
+        return new_node
 
-    def traverse(self, state):
-        """ Returns a list of states to explore. If state is terminal the list
-            has length 1.
-        """
+    def defaultPolicy(self, state):
+        s = state
+        while not s.isWin() and not s.isLose():
+            legal_actions = s.getLegalPacmanActions()
+            legal_actions.remove("Stop")
+            rnd_action = np.random.choice(legal_actions)
+            s = s.generatePacmanSuccessor(rnd_action)
+        return s.getScore()
 
-        def state_is_explored(state):
-            """ Determines whether a state has been explored before.
-                Returns True if the state has been explored, false otherwise
-            """
-            """ YOUR CODE HERE!"""
-            raise NotImplementedError
-
-        def best_UCT(state):
-            """ Given a state, return the best action according to the UCT criterion."""
-            """ YOUR CODE HERE!"""
-            raise NotImplementedError
-
-        while state_is_explored(state):
-            action = best_UCT(state)
-            state = state.generatePacmanSuccessor(action)
-
-            if state.isWin() or state.isLose():
-                return [copy.deepcopy(state)]
-
-        return self.all_successors(state)
-
-    def rollout(self, state):
-        """ Simulate a play through, using random actions.
-        """
-        while not state.isWin() and not state.isLose():
-            """ YOUR CODE HERE! """
-            state = 'XXX'
-            raise NotImplementedError
-        return state.getScore()
-
-    def backpropagate(self, state, result):
-        """ Backpropagate the scores, and update the value estimates."""
-        """ YOUR CODE HERE! """
-
-    def best_action(self, node):
-        """ Returns the best action given a state. This will be the action with
-            the highest number of visits.
-        """
-        """ Your Code HERE!"""
-        action = None
-        return action
-
+    def backup(self, node, value):
+        n = node
+        while not n is None:
+            n.Visits += 1
+            n.Value = n.Value + value
+            n = n.Parent
 
 if __name__ == '__main__':
-    str_args = ['-l', 'TinyMaze', '-g', 'DirectionalGhost', '--frameTime', '0', '-n', '10']
-    str_args = ['-l', 'TestMaze', '-g', 'DirectionalGhost', '--frameTime', '0', '-n', '10']
-    args = readCommand(str_args)
+    #str_args = ['-l', 'tinyMaze', '-g', 'DirectionalGhost', '--frameTime', '0', '-n', '100']
+    #str_args = ['-l', 'testMaze', '-g', 'DirectionalGhost', '--frameTime', '0', '-n', '10']
+    args = readCommand(sys.argv[1:])
     # args['display'] = textDisplay.NullGraphics()  # Disable rendering
 
     args['pacman'] = MCTSagent()
