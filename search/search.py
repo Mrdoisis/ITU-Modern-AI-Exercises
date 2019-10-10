@@ -18,6 +18,7 @@ Pacman agents (in searchAgents.py).
 """
 
 import util
+import Queue
 
 class SearchProblem:
     """
@@ -108,8 +109,45 @@ def nullHeuristic(state, problem=None):
 
 def aStarSearch(problem, heuristic=nullHeuristic):
     """Search the node that has the lowest combined cost and heuristic first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    start = problem.getStartState()
+    solution = []
+    openList = []
+    openList.append((heuristic(start, problem), start))
+    closedList = []
+    g = {}
+    g[start] = 0
+    h = {}
+    h[start] = heuristic(start, problem)
+    parent = {}
+
+    while not len(openList) < 1:
+        current = min(openList, key = lambda t: t[0])
+        openList.remove(current)
+        if problem.isGoalState(current[1]):
+            goalState = current[1]
+            break
+        for successor in problem.getSuccessors(current[1]):
+            successor_current_cost = current[0] + successor[2]
+            if successor[0] in [x[1] for x in openList]:
+                if g[successor[0]] <= successor_current_cost:
+                    continue
+            elif successor[0] in closedList:
+                if g[successor[0]] <= successor_current_cost:
+                    openList.append((successor_current_cost, successor[0]))
+                    closedList.remove(successor[0])
+                    continue
+            else:
+                openList.append((successor_current_cost, successor[0]))
+                h[successor[0]] = heuristic(successor[0], problem)
+            g[successor[0]] = successor_current_cost
+            parent[successor[0]] = (current[1], successor[1])
+        closedList.append(current[1])
+
+    while(goalState in parent.keys()):
+        (prev, action) = parent[goalState]
+        solution.insert(0, action)
+        goalState = prev
+    return solution
 
 
 # Abbreviations
