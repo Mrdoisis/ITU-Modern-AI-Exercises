@@ -93,7 +93,23 @@ def depthFirstSearch(problem):
 def breadthFirstSearch(problem):
     """Search the shallowest nodes in the search tree first."""
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    import Queue
+
+    visited = []
+    remaining = Queue.Queue()
+    remaining.put(problem.getStartState())
+
+    visited.append(problem.getStartState())
+    while not remaining.empty():
+        current = remaining.get()
+
+        for neighbour in problem.getSuccessors(current):
+            if neighbour[0] not in visited:
+                remaining.put(neighbour[0])
+                visited.append(neighbour[0])
+    return visited
+
+
 
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""
@@ -109,45 +125,101 @@ def nullHeuristic(state, problem=None):
 
 def aStarSearch(problem, heuristic=nullHeuristic):
     """Search the node that has the lowest combined cost and heuristic first."""
-    start = problem.getStartState()
-    solution = []
-    openList = []
-    openList.append((heuristic(start, problem), start))
-    closedList = []
-    g = {}
-    g[start] = 0
-    h = {}
-    h[start] = heuristic(start, problem)
-    parent = {}
+    import Queue
 
-    while not len(openList) < 1:
-        current = min(openList, key = lambda t: t[0])
-        openList.remove(current)
-        if problem.isGoalState(current[1]):
-            goalState = current[1]
-            break
-        for successor in problem.getSuccessors(current[1]):
-            successor_current_cost = current[0] + successor[2]
-            if successor[0] in [x[1] for x in openList]:
-                if g[successor[0]] <= successor_current_cost:
-                    continue
-            elif successor[0] in closedList:
-                if g[successor[0]] <= successor_current_cost:
-                    openList.append((successor_current_cost, successor[0]))
-                    closedList.remove(successor[0])
-                    continue
+    # the start node is the initial pacman position
+    start_node = problem.getStartState()
+
+    # 'open' is a priority queue of unexplored nodes initialized with the start node
+    # the priority is the combined cost and heuristic for nodes
+    open = Queue.PriorityQueue()
+    open.put((0, start_node))
+
+    # 'closed' is a list of explored nodes
+    closed = []
+
+    # 'g' is a dictionary to keep track of stepcost to get to any state
+    # g(s) = stepcost from start to parent + stepcost from parent to s
+    g = {start_node: 0}
+
+    # 'h' is a dictionary to keep track of the heuristic cost of a given state
+    h = {start_node: heuristic(start_node, problem)}
+
+    # 'f' is a dictionary to keep track of combined stepcost and heuristic of any given state
+    # f(s) = g(s) + h(s)
+    f = {start_node: g[start_node] + h[start_node]}
+
+    # flag to define when we should stop exploring new nodes
+    goal_is_found = False
+
+    # triplet to contain the successor that leads us to the goal state
+    # this variable will be assigned a new value once a goal state is found
+    goal_node = start_node
+
+    # 'nodes' is a dictionary to keep track of how we arrived at any given state
+    # contains the action that brought us to this state and the state from which we took the action
+    # (action, parent)
+    nodes = {start_node: (None, None)}
+
+    # continuously explores one node at a time, until there are no more unexplored nodes
+    while not open.empty() and not goal_is_found:
+
+        # get and remove the first node in the open list
+        (_, q) = open.get()
+
+        # mark the node as explored
+        closed.append(q)
+
+        # iterate over all connected nodes (successors) of the unexplored node
+        for successor in problem.getSuccessors(q):
+            (s, action, stepCost) = successor
+
+            # if we found a goal state then break
+            if problem.isGoalState(s):
+                nodes[s] = (action, q)
+                goal_node = successor
+                goal_is_found = True
+                break
+
+            # calculate combined cost of going to this successor state
+            g_ = g[q] + stepCost
+            h_ = heuristic(s, problem)
+            print "("+action+","+str(h_)+")"
+            f_ = g_ + h_
+
+            # if we found a lower combined cost to a state that we already explored, then update the cost of that state
+            if s in closed:
+                if f_ < f[s]:
+                    g[s] = g_
+                    h[s] = h_
+                    f[s] = f_
+                    nodes[s] = (action, q)
             else:
-                openList.append((successor_current_cost, successor[0]))
-                h[successor[0]] = heuristic(successor[0], problem)
-            g[successor[0]] = successor_current_cost
-            parent[successor[0]] = (current[1], successor[1])
-        closedList.append(current[1])
+                # queue the successor state for exploration
+                g[s] = g_
+                h[s] = h_
+                f[s] = f_
+                open.put((h[s], s))
+                nodes[s] = (action, q)
 
-    while(goalState in parent.keys()):
-        (prev, action) = parent[goalState]
-        solution.insert(0, action)
-        goalState = prev
+    # backtrack from the goal state to the start state to get the solution
+    (goal_action, goal_parent) = nodes[goal_node[0]]
+    solution = [goal_action]
+    parent = goal_parent
+    done = False
+    while not done:
+        # insert action to the solution
+        solution.insert(0, nodes[parent][0])
+
+        # update parent to be parent's parent
+        parent = nodes[parent][1]
+        if nodes[parent][0] is None:
+            done = True
+
+
     return solution
+
+
 
 
 # Abbreviations
