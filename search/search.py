@@ -96,18 +96,31 @@ def breadthFirstSearch(problem):
     import Queue
 
     visited = []
-    remaining = Queue.Queue()
-    remaining.put(problem.getStartState())
-
+    remaining = []
+    parents = {problem.getStartState: None}
+    remaining.append(problem.getStartState())
     visited.append(problem.getStartState())
-    while not remaining.empty():
-        current = remaining.get()
+    goal_state = None
 
-        for neighbour in problem.getSuccessors(current):
+    while not len(remaining) < 1:
+        s = remaining.pop(0)
+        if problem.isGoalState(s): goal_state = s
+
+        for neighbour in problem.getSuccessors(s):
             if neighbour[0] not in visited:
-                remaining.put(neighbour[0])
+                remaining.append(neighbour[0])
                 visited.append(neighbour[0])
-    return visited
+                if problem.isGoalState(neighbour[0]): goal_state = neighbour[0]
+                parents[neighbour[0]] = (s, neighbour[1])
+
+    path = []
+
+    while not goal_state is None:
+        if goal_state == problem.getStartState(): break
+        path.insert(0, parents[goal_state][1])
+        goal_state = parents[goal_state][0]
+    
+    return path
 
 
 
@@ -184,7 +197,7 @@ def aStarSearch(problem, heuristic=nullHeuristic):
             # calculate combined cost of going to this successor state
             g_ = g[q] + stepCost
             h_ = heuristic(s, problem)
-            print "("+action+","+str(h_)+")"
+            #print "("+action+","+str(h_)+")"
             f_ = g_ + h_
 
             # if we found a lower combined cost to a state that we already explored, then update the cost of that state
@@ -199,7 +212,7 @@ def aStarSearch(problem, heuristic=nullHeuristic):
                 g[s] = g_
                 h[s] = h_
                 f[s] = f_
-                open.put((h[s], s))
+                open.put((f[s], s))
                 nodes[s] = (action, q)
 
     # backtrack from the goal state to the start state to get the solution

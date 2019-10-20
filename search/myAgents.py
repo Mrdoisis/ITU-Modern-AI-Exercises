@@ -1,39 +1,3 @@
-    # searchAgents.py
-# ---------------
-# Licensing Information:  You are free to use or extend these projects for
-# educational purposes provided that (1) you do not distribute or publish
-# solutions, (2) you retain this notice, and (3) you provide clear
-# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
-# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
-# The core projects and autograders were primarily created by John DeNero
-# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
-# Student side autograding was added by Brad Miller, Nick Hay, and
-# Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
-
-"""
-This file contains all of the agents that can be selected to control Pacman.  To
-select an agent, use the '-p' option when running pacman.py.  Arguments can be
-passed to your agent using '-a'.  For example, to load a SearchAgent that uses
-depth first search (dfs), run the following command:
-
-> python pacman.py -p SearchAgent -a fn=depthFirstSearch
-
-Commands to invoke other search strategies can be found in the project
-description.
-
-Please only change the parts of the file you are asked to.  Look for the lines
-that say
-
-"*** YOUR CODE HERE ***"
-
-The parts you fill in start about 3/4 of the way down.  Follow the project
-description for details.
-
-Good luck and happy searching!
-"""
-
 from game import Directions
 from game import Agent
 from game import Actions
@@ -44,17 +8,94 @@ import search
 import copy
 import numpy as np
 
-class GoWestAgent(Agent):
-    "An agent that goes West until it can't."
+
+# Agent using Monte-Carlo-Tree-Search
+class Node():
+    def __init__(self, id, parent, children, action_taken, state):
+        self.ID = id
+        self.Parent = parent
+        self.Children = children # dictionary of actions
+        self.Value = 0
+        self.Visits = 0
+        self.Action = action_taken
+        self.State = state
+class MCTSagent(Agent):
+    def __init__(self):
+        self.explored = {}  # Dictionary for storing the explored states
+        self.n = 5  # Depth of search  # TODO: Play with this once the code runs
+        #self.c = 1/np.sqrt(2)  # Exploration parameter # TODO: Play with this once the code runs
+        self.c = 0.2
+        self.treeSize = 1
+        self.explored = {}
 
     def getAction(self, state):
-        "The agent receives a GameState (defined in pacman.py)."
-        if Directions.WEST in state.getLegalPacmanActions():
-            return Directions.WEST
-        else:
-            return Directions.STOP
+        """ Main function for the Monte Carlo Tree Search. For as long as there
+            are resources, run the main loop. Once the resources runs out, take the
+            action that looks the best.
+        """
+        root = Node(0, None, {}, None, state)
+        for _ in range(self.n):
+            v1 = self.tree_policy(root)
+            result = self.defaultPolicy(v1.State)
+            self.backup(v1, result)
+        return self.best_child(root)
 
-class QLearningAgents(Agent):
+    def best_child(self, node):
+        """ Given a state, return the best action according to the UCT criterion."""
+        """ YOUR CODE HERE!"""
+        actions = {}
+        for child in node.Children.values():
+            x_j = child.Value
+            if x_j is None:
+                x_j = 0
+            actions[child.Action] = x_j + 2 * self.c * np.sqrt(2 * np.log(self.treeSize) / child.Visits) # UCT
+        max_actions = [k for k, v in actions.iteritems() if v == max(actions.values())]
+        legal_actions = []
+        valid_actions = node.State.getLegalPacmanActions()
+        for a in max_actions:
+            if a in valid_actions:
+                legal_actions.append(a)
+
+        return np.random.choice(legal_actions)  # return random legal max action
+
+    def tree_policy(self, node):
+        while not node.State.isWin() and not node.State.isLose():
+            if len(node.State.getLegalPacmanActions())-1 > len(node.Children):
+                return self.expand(node)
+            else:
+                best_child = self.best_child(node)
+                node = node.Children[best_child]
+        return node
+
+    def expand(self, node):
+        untried_actions = node.State.getLegalPacmanActions()
+        untried_actions.remove("Stop")
+        for tried_action in node.Children:
+            untried_actions.remove(tried_action)
+        chosen_untried_action = np.random.choice(untried_actions)
+        state_when_action_taken = node.State.generatePacmanSuccessor(chosen_untried_action)
+        new_node = Node(len(self.explored), node, {}, chosen_untried_action, state_when_action_taken)
+        node.Children[chosen_untried_action] = new_node
+        return new_node
+
+    def defaultPolicy(self, state):
+        s = state
+        while not s.isWin() and not s.isLose():
+            legal_actions = s.getLegalPacmanActions()
+            legal_actions.remove("Stop")
+            rnd_action = np.random.choice(legal_actions)
+            s = s.generatePacmanSuccessor(rnd_action)
+        return s.getScore()
+
+    def backup(self, node, value):
+        n = node
+        while not n is None:
+            n.Visits += 1
+            n.Value = n.Value + value
+            n = n.Parent
+
+# Agent using Q-learning
+class QLearningAgent(Agent):
     """
     This controller is inspired by the approach taken in the Q-learning videos and blog posts tutorials by https://deeplizard.com.
     """
@@ -165,213 +206,8 @@ class QLearningAgents(Agent):
         action = self.actions[np.random.choice(max_actions)]
         return action
 
-import GA_util
-class GAAgent(Agent):
-    def __init__(self, genome=None):
-        self.legal_composit = ["SEQ", "SEL"]
-        self.legal_leaf = [
-            "Go.North",
-            "Go.East",
-            "Go.South",
-            "Go.West",
-            "Valid.North",
-            "Valid.East",
-            "Valid.South",
-            "Valid.West",
-            "Danger.North",
-            "Danger.East",
-            "Danger.South",
-            "Danger.West",
-            "Go.Random",
-            "GoNot.North",
-            "GoNot.East",
-            "GoNot.South",
-            "GoNot.West",
-        ]
-        self.legal_decorator = ["Invert"]
-        self.legal_nodes = self.legal_composit + self.legal_leaf #+ self.legal_decorator
 
-        """
-        self.genome = ["SEL",
-             ["SEQ", "Valid.North", "Go.North"],
-             ["SEQ", "Valid.East", "Go.East"],
-             ["SEQ", "Valid.South", "Go.South"],
-             ["SEQ", "Valid.West", "Go.West"],
-             "Go.Random"]
-
-        self.genome = ["SEL",
-             ["SEQ", "Valid.North", "Danger.North", "GoNot.North"],
-             ["SEQ", "Valid.East", "Danger.East", "GoNot.East"],
-             ["SEQ", "Valid.South", "Danger.South", "GoNot.South"],
-             ["SEQ", "Valid.West", "Danger.West", "GoNot.West"],
-             "Go.Random"]
-        """
-
-        if genome is None:
-            self.genome = ["SEL"]
-
-        self.fitness = 0
-        self.tree = GA_util.parse_node(self.genome, None)
-
-    def copy(self):
-        clone = GAAgent()
-        clone.genome = copy.deepcopy(self.genome)
-        return clone
-
-    def print_genome(self):
-        def print_help(genome, prefix=''):
-            for gene in genome:
-                if isinstance(gene, list):
-                    print_help(gene, prefix+"  ")
-                elif gene in self.legal_composit:
-                    print prefix, gene
-                else:
-                    print prefix+'  ', gene
-
-        print_help(self.genome)
-
-    def findDepth(self, root=None):
-        depth = 0
-        depths = []
-        if root is None:
-            root = self.genome[0]
-        for child in root:
-            if isinstance(child, list):
-                depth_rec = self.findDepth(child)
-                depths.append(depth_rec)
-                return max(depths)
-        return max(depth)
-
-
-    def crossover(self, parents):
-        offsprings = []
-
-        for parent in parents:
-            offspring = parent.copy()
-            match = np.random.choice(parents)
-
-            ri = np.random.randint(0, len(offspring.genome))
-            crossoverPoint = offspring.genome[ri]
-            while isinstance(crossoverPoint, list):
-                decision = (True,False)
-                should_stop = np.random.choice(decision, p=[0.2, 0.8])
-                if should_stop:
-                    break
-                ri = np.random.randint(0, len(crossoverPoint))
-                crossoverPoint = crossoverPoint[ri]
-
-            cross_match = self.getRandomSubTree(match)
-            crossoverPoint = cross_match
-
-
-            """YOUR CODE HERE"""
-            offsprings.append(offspring)
-
-    def getRandomSubTree(self, node):
-        ri = np.random.randin(0, len(node))
-        p = node[ri]
-
-        if isinstance(p, list):
-            p = self.getRandomSubTree(p)
-        else:
-            return p
-
-    def mutate(self):
-        """ YOUR CODE HERE! """
-        decision = [True, False]
-
-        should_create = np.random.choice(decision, p=[0.09, 0.91])
-        should_go_further = np.random.choice(decision, p=[0.8, 0.2])
-
-        if should_create:
-            print "hi"
-        root = self.tree
-        start = root
-        parent = None
-        is_leaf = False
-        new_tree = root
-        while(isinstance(start.children, list) and should_go_further):
-            if len(start.children) > 0:
-                ri = np.random.randint(0, len(start.children))
-                if not (isinstance(start.children[ri], GA_util.Selector) or isinstance(start.children[ri], GA_util.Sequence)):
-                    is_leaf = True
-                    parent = start
-                    start = start.children[ri]
-                    break
-                start = start.children[ri]
-
-            else:
-                break
-        if not is_leaf:
-            parent = start.parent
-            if should_create or len(start.children) == 0:
-                new_part = self.new_random_tree()
-                if not isinstance(new_part, list):
-                    new_part = [new_part]
-                new_tree = GA_util.parse_node(new_part, start)
-        else:
-            start = self.new_random_tree()
-            if not isinstance(start, list):
-                start = [start]
-            new_tree = GA_util.parse_node(start, parent)
-
-
-        new_genome = GA_util.tree_to_genome(new_tree)
-        self.genome = new_genome
-        new_tree = GA_util.parse_node(self.genome, None)
-        self.tree = new_tree
-
-    def addMove(self, direction):
-        return ["SEQ", "Valid."+direction, "Danger."+direction, "Go"+direction]
-
-    def new_random_tree(self):
-        base_node = np.random.choice(self.legal_nodes)
-        if base_node in self.legal_composit:
-            new_tree = [base_node]
-            new_tree.append(self.new_random_tree())
-
-        return base_node
-
-    def randSubtree(self, start_node):
-        new_node = start_node
-        new_tree = []
-        while new_node in self.legal_composit:
-            node = new_node
-            if node.startswith("Go."):
-                direction = node.split(".")[1]
-                #new_node = self.addMove(direction)
-            new_tree.append(new_node)
-            new_node = np.random.choice(self.legal_nodes)
-        if new_node.startswith("Go."):
-            direction = new_node.split(".")[1]
-            #new_node = self.addMove(direction)
-        new_tree.append(new_node)
-        return new_tree
-
-    def getAction(self, state):
-        """myGenome = ["SEL",
-             ["SEQ", "Valid.North", "Go.North"],
-             ["SEQ", "Valid.East", "Go.East"],
-             ["SEQ", "Valid.South", "Go.South"],
-             ["SEQ", "Valid.West", "Go.West"],
-             "Go.Random"]
-        tree = GA_util.parse_node(myGenome, None)"""
-        genom = GA_util.tree_to_genome(self.tree)
-        print genom
-        action = self.tree(state)
-        if action not in state.getLegalPacmanActions():
-            #print "Illegal action!!"
-            action = 'Stop'
-            #legal_actions = state.getLegalPacmanActions()
-            #action = np.random.choice(legal_actions)
-        return action
-
-
-#######################################################
-# This portion is written for you, but will only work #
-#       after you fill in parts of search.py          #
-#######################################################
-
+# Agent using A* and foodHeuristic
 class SearchAgent(Agent):
     """
     This very general search agent finds a path using a supplied search
@@ -448,7 +284,6 @@ class SearchAgent(Agent):
             return self.actions[i]
         else:
             return Directions.STOP
-
 class PositionSearchProblem(search.SearchProblem):
     """
     A search problem defines the state space, start state, goal test, successor
@@ -541,149 +376,6 @@ class PositionSearchProblem(search.SearchProblem):
             if self.walls[x][y]: return 999999
             cost += self.costFn((x,y))
         return cost
-
-class StayEastSearchAgent(SearchAgent):
-    """
-    An agent for position search with a cost function that penalizes being in
-    positions on the West side of the board.
-
-    The cost function for stepping into a position (x,y) is 1/2^x.
-    """
-    def __init__(self):
-        self.searchFunction = search.uniformCostSearch
-        costFn = lambda pos: .5 ** pos[0]
-        self.searchType = lambda state: PositionSearchProblem(state, costFn, (1, 1), None, False)
-
-class StayWestSearchAgent(SearchAgent):
-    """
-    An agent for position search with a cost function that penalizes being in
-    positions on the East side of the board.
-
-    The cost function for stepping into a position (x,y) is 2^x.
-    """
-    def __init__(self):
-        self.searchFunction = search.uniformCostSearch
-        costFn = lambda pos: 2 ** pos[0]
-        self.searchType = lambda state: PositionSearchProblem(state, costFn)
-
-def manhattanHeuristic(position, problem, info={}):
-    "The Manhattan distance heuristic for a PositionSearchProblem"
-    xy1 = position
-    xy2 = problem.goal
-    return abs(xy1[0] - xy2[0]) + abs(xy1[1] - xy2[1])
-
-def euclideanHeuristic(position, problem, info={}):
-    "The Euclidean distance heuristic for a PositionSearchProblem"
-    xy1 = position
-    xy2 = problem.goal
-    return ( (xy1[0] - xy2[0]) ** 2 + (xy1[1] - xy2[1]) ** 2 ) ** 0.5
-
-#####################################################
-# This portion is incomplete.  Time to write code!  #
-#####################################################
-
-class CornersProblem(search.SearchProblem):
-    """
-    This search problem finds paths through all four corners of a layout.
-
-    You must select a suitable state space and successor function
-    """
-
-    def __init__(self, startingGameState):
-        """
-        Stores the walls, pacman's starting position and corners.
-        """
-        self.walls = startingGameState.getWalls()
-        self.startingPosition = startingGameState.getPacmanPosition()
-        top, right = self.walls.height-2, self.walls.width-2
-        self.corners = ((1,1), (1,top), (right, 1), (right, top))
-        for corner in self.corners:
-            if not startingGameState.hasFood(*corner):
-                print 'Warning: no food in corner ' + str(corner)
-        self._expanded = 0 # DO NOT CHANGE; Number of search nodes expanded
-        # Please add any code here which you would like to use
-        # in initializing the problem
-        "*** YOUR CODE HERE ***"
-
-    def getStartState(self):
-        """
-        Returns the start state (in your state space, not the full Pacman state
-        space)
-        """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
-    def isGoalState(self, state):
-        """
-        Returns whether this search state is a goal state of the problem.
-        """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
-    def getSuccessors(self, state):
-        """
-        Returns successor states, the actions they require, and a cost of 1.
-
-         As noted in search.py:
-            For a given state, this should return a list of triples, (successor,
-            action, stepCost), where 'successor' is a successor to the current
-            state, 'action' is the action required to get there, and 'stepCost'
-            is the incremental cost of expanding to that successor
-        """
-
-        successors = []
-        for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
-            # Add a successor state to the successor list if the action is legal
-            # Here's a code snippet for figuring out whether a new position hits a wall:
-            #   x,y = currentPosition
-            #   dx, dy = Actions.directionToVector(action)
-            #   nextx, nexty = int(x + dx), int(y + dy)
-            #   hitsWall = self.walls[nextx][nexty]
-
-            "*** YOUR CODE HERE ***"
-
-        self._expanded += 1 # DO NOT CHANGE
-        return successors
-
-    def getCostOfActions(self, actions):
-        """
-        Returns the cost of a particular sequence of actions.  If those actions
-        include an illegal move, return 999999.  This is implemented for you.
-        """
-        if actions == None: return 999999
-        x,y= self.startingPosition
-        for action in actions:
-            dx, dy = Actions.directionToVector(action)
-            x, y = int(x + dx), int(y + dy)
-            if self.walls[x][y]: return 999999
-        return len(actions)
-
-
-def cornersHeuristic(state, problem):
-    """
-    A heuristic for the CornersProblem that you defined.
-
-      state:   The current search state
-               (a data structure you chose in your search problem)
-
-      problem: The CornersProblem instance for this layout.
-
-    This function should always return a number that is a lower bound on the
-    shortest path from the state to a goal of the problem; i.e.  it should be
-    admissible (as well as consistent).
-    """
-    corners = problem.corners # These are the corner coordinates
-    walls = problem.walls # These are the walls of the maze, as a Grid (game.py)
-
-    "*** YOUR CODE HERE ***"
-    return 0 # Default to trivial solution
-
-class AStarCornersAgent(SearchAgent):
-    "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
-    def __init__(self):
-        self.searchFunction = lambda prob: search.aStarSearch(prob, cornersHeuristic)
-        self.searchType = CornersProblem
-
 class FoodSearchProblem:
     """
     A search problem associated with finding the a path that collects all of the
@@ -733,13 +425,11 @@ class FoodSearchProblem:
                 return 999999
             cost += 1
         return cost
-
-class AStarFoodSearchAgents(SearchAgent):
+class AStarFoodSearchAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
     def __init__(self):
         self.searchFunction = lambda prob: search.aStarSearch(prob, foodHeuristic)
         self.searchType = FoodSearchProblem
-
 def foodHeuristic(state, problem):
     """
     Your heuristic for the FoodSearchProblem goes here.
@@ -782,7 +472,7 @@ def foodHeuristic(state, problem):
     # point to the closest food
     closest = foodList[distances.index(min(distances))]
 
-    # 
+    #
     remaining_foods = 0
     for (x, y) in foodList:
         if (x != position[0] and x != closest[0]) or (y != position[1] and y != closest[1]):
@@ -790,74 +480,6 @@ def foodHeuristic(state, problem):
 
     real_dist_to_closest = mazeDistance(position, closest, problem.startingGameState)
     return real_dist_to_closest + remaining_foods
-
-class ClosestDotSearchAgent(SearchAgent):
-    "Search for all food using a sequence of searches"
-    def registerInitialState(self, state):
-        self.actions = []
-        currentState = state
-        while(currentState.getFood().count() > 0):
-            nextPathSegment = self.findPathToClosestDot(currentState) # The missing piece
-            self.actions += nextPathSegment
-            for action in nextPathSegment:
-                legal = currentState.getLegalActions()
-                if action not in legal:
-                    t = (str(action), str(currentState))
-                    raise Exception, 'findPathToClosestDot returned an illegal move: %s!\n%s' % t
-                currentState = currentState.generateSuccessor(0, action)
-        self.actionIndex = 0
-        print 'Path found with cost %d.' % len(self.actions)
-
-    def findPathToClosestDot(self, gameState):
-        """
-        Returns a path (a list of actions) to the closest dot, starting from
-        gameState.
-        """
-        # Here are some useful elements of the startState
-        startPosition = gameState.getPacmanPosition()
-        food = gameState.getFood()
-        walls = gameState.getWalls()
-        problem = AnyFoodSearchProblem(gameState)
-
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
-class AnyFoodSearchProblem(PositionSearchProblem):
-    """
-    A search problem for finding a path to any food.
-
-    This search problem is just like the PositionSearchProblem, but has a
-    different goal test, which you need to fill in below.  The state space and
-    successor function do not need to be changed.
-
-    The class definition above, AnyFoodSearchProblem(PositionSearchProblem),
-    inherits the methods of the PositionSearchProblem.
-
-    You can use this search problem to help you fill in the findPathToClosestDot
-    method.
-    """
-
-    def __init__(self, gameState):
-        "Stores information from the gameState.  You don't need to change this."
-        # Store the food for later reference
-        self.food = gameState.getFood()
-
-        # Store info for the PositionSearchProblem (no need to change this)
-        self.walls = gameState.getWalls()
-        self.startState = gameState.getPacmanPosition()
-        self.costFn = lambda x: 1
-        self._visited, self._visitedlist, self._expanded = {}, [], 0 # DO NOT CHANGE
-
-    def isGoalState(self, state):
-        """
-        The state is Pacman's position. Fill this in with a goal test that will
-        complete the problem definition.
-        """
-        x,y = state
-
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
 def mazeDistance(point1, point2, gameState):
     """
     Returns the maze distance between any two points, using the search functions
