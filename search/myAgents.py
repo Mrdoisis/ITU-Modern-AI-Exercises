@@ -11,8 +11,7 @@ import numpy as np
 
 # Agent using Monte-Carlo-Tree-Search
 class Node():
-    def __init__(self, id, parent, children, action_taken, state):
-        self.ID = id
+    def __init__(self, parent, children, action_taken, state):
         self.Parent = parent
         self.Children = children # dictionary of actions
         self.Value = 0
@@ -21,64 +20,82 @@ class Node():
         self.State = state
 class MCTSagent(Agent):
     def __init__(self):
-        self.explored = {}  # Dictionary for storing the explored states
-        self.n = 5  # Depth of search  # TODO: Play with this once the code runs
-        #self.c = 1/np.sqrt(2)  # Exploration parameter # TODO: Play with this once the code runs
-        self.c = 0.2
-        self.treeSize = 1
-        self.explored = {}
+        self.n = 5  # Depth of search
+        self.c = 1/np.sqrt(2)  # Exploration parameter
 
     def getAction(self, state):
         """ Main function for the Monte Carlo Tree Search. For as long as there
             are resources, run the main loop. Once the resources runs out, take the
             action that looks the best.
         """
-        root = Node(0, None, {}, None, state)
+        root = Node(None, {}, None, state)
         for _ in range(self.n):
+            # Traverse the tree to a point of expansion, and return the newly created node.
+            # 'v1' will either be a new node in the tree, or a terminal node
             v1 = self.tree_policy(root)
+
+            # Do random rollout from v1 and get the score
             result = self.defaultPolicy(v1.State)
+
+            # Update all traversed nodes in the tree with the score that the simulation resulted in
             self.backup(v1, result)
+
         return self.best_child(root)
 
     def best_child(self, node):
         """ Given a state, return the best action according to the UCT criterion."""
-        """ YOUR CODE HERE!"""
         actions = {}
         for child in node.Children.values():
             x_j = child.Value
             if x_j is None:
                 x_j = 0
-            actions[child.Action] = x_j + 2 * self.c * np.sqrt(2 * np.log(self.treeSize) / child.Visits) # UCT
-        max_actions = [k for k, v in actions.iteritems() if v == max(actions.values())]
-        legal_actions = []
-        valid_actions = node.State.getLegalPacmanActions()
-        for a in max_actions:
-            if a in valid_actions:
-                legal_actions.append(a)
+            actions[child.Action] = x_j + self.c * np.sqrt(np.log(node.Visits) / child.Visits)  # UCT
 
-        return np.random.choice(legal_actions)  # return random legal max action
+        # List of all best legal actions
+        # For all actions, choose the actions that has the maximum value and is legal
+        max_actions = [k for k, v in actions.iteritems() if (v == max(actions.values()) and k in node.State.getLegalPacmanActions())]
+
+        # Return a randomly chosen action of the best legal actions
+        return np.random.choice(max_actions)
 
     def tree_policy(self, node):
         while not node.State.isWin() and not node.State.isLose():
+            # If this state has a legal action, still unexplored, then expand and return the new node
             if len(node.State.getLegalPacmanActions())-1 > len(node.Children):
                 return self.expand(node)
+
+            # Otherwise, choose the best action by calculating the best child node
             else:
-                best_child = self.best_child(node)
-                node = node.Children[best_child]
+                best_action = self.best_child(node)
+
+                # Get the child node when taking the best action and start over the loop
+                node = node.Children[best_action]
+
+        # If the traversal reached a terminal state, return the terminal node
         return node
 
     def expand(self, node):
+        # Create list of legal actions, that this node haven't explored yet
         untried_actions = node.State.getLegalPacmanActions()
         untried_actions.remove("Stop")
         for tried_action in node.Children:
             untried_actions.remove(tried_action)
+
+        # Choose one random untried action
         chosen_untried_action = np.random.choice(untried_actions)
+
+        # Transition into a new state by taking the chosen action
         state_when_action_taken = node.State.generatePacmanSuccessor(chosen_untried_action)
-        new_node = Node(len(self.explored), node, {}, chosen_untried_action, state_when_action_taken)
+
+        # Create a child node which is the new state, with the previous node as a parent
+        new_node = Node(node, {}, chosen_untried_action, state_when_action_taken)
+
+        # Add the chosen action to the children of the expanded node
         node.Children[chosen_untried_action] = new_node
         return new_node
 
     def defaultPolicy(self, state):
+        # Randomly choose actions from given state until termination and return score
         s = state
         while not s.isWin() and not s.isLose():
             legal_actions = s.getLegalPacmanActions()
@@ -87,11 +104,12 @@ class MCTSagent(Agent):
             s = s.generatePacmanSuccessor(rnd_action)
         return s.getScore()
 
-    def backup(self, node, value):
+    def backup(self, node, result):
+        # Iteratively update parents with the result of the simulation
         n = node
         while not n is None:
             n.Visits += 1
-            n.Value = n.Value + value
+            n.Value = result
             n = n.Parent
 
 # Agent using Q-learning
@@ -207,7 +225,7 @@ class QLearningAgent(Agent):
         return action
 
 
-# Agent using A* and foodHeuristic
+# Agent using A* from search.py and foodHeuristic
 class SearchAgent(Agent):
     """
     This very general search agent finds a path using a supplied search
@@ -431,33 +449,6 @@ class AStarFoodSearchAgent(SearchAgent):
         self.searchFunction = lambda prob: search.aStarSearch(prob, foodHeuristic)
         self.searchType = FoodSearchProblem
 def foodHeuristic(state, problem):
-    """
-    Your heuristic for the FoodSearchProblem goes here.
-
-    This heuristic must be consistent to ensure correctness.  First, try to come
-    up with an admissible heuristic; almost all admissible heuristics will be
-    consistent as well.
-
-    If using A* ever finds a solution that is worse uniform cost search finds,
-    your heuristic is *not* consistent, and probably not admissible!  On the
-    other hand, inadmissible or inconsistent heuristics may find optimal
-    solutions, so be careful.
-
-    The state is a tuple ( pacmanPosition, foodGrid ) where foodGrid is a Grid
-    (see game.py) of either True or False. You can call foodGrid.asList() to get
-    a list of food coordinates instead.
-
-    If you want access to info like walls, capsules, etc., you can query the
-    problem.  For example, problem.walls gives you a Grid of where the walls
-    are.
-
-    If you want to *store* information to be reused in other calls to the
-    heuristic, there is a dictionary called problem.heuristicInfo that you can
-    use. For example, if you only want to count the walls once and store that
-    value, try: problem.heuristicInfo['wallCount'] = problem.walls.count()
-    Subsequent calls to this heuristic can access
-    problem.heuristicInfo['wallCount']
-    """
     position, foodGrid = state
     "*** YOUR CODE HERE ***"
     foodList = foodGrid.asList()
@@ -472,7 +463,10 @@ def foodHeuristic(state, problem):
     # point to the closest food
     closest = foodList[distances.index(min(distances))]
 
-    #
+    # count the amount of foods still remaining if pacman travel to the approximated closest food
+    # this will be the amount of foods not on the same row or column as pacman or the food pacman is going towards.
+    # this makes sense since pacman might be approximately closer to a food if there's a wall between pacman and the food
+    # and whilst going there, he will pick up all the foods on the same row
     remaining_foods = 0
     for (x, y) in foodList:
         if (x != position[0] and x != closest[0]) or (y != position[1] and y != closest[1]):
